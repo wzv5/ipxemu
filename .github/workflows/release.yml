@@ -1,0 +1,49 @@
+name: release
+
+on:
+  push:
+    tags: [ v*.*.* ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          targets: i686-pc-windows-msvc
+
+      - name: Download VC-LTL
+        shell: bash
+        run: |
+          curl -L -o VC-LTL-Binary.7z https://github.com/Chuyu-Team/VC-LTL5/releases/download/v5.2.2/VC-LTL-Binary.7z
+          7z x -ovc-ltl VC-LTL-Binary.7z
+
+      - name: Build
+        shell: bash
+        run: |
+          mkdir -p ipxemu/win10
+          cargo build --release --target i686-pc-windows-msvc
+          cp target/i686-pc-windows-msvc/release/wsock32.dll ipxemu/win10
+          mkdir -p ipxemu/winxp
+          export VCLTL_PATH=vc-ltl/TargetPlatform/5.1.2600.0/lib/Win32
+          cargo build --release --target i686-pc-windows-msvc
+          cp target/i686-pc-windows-msvc/release/wsock32.dll ipxemu/winxp
+          7z a ipxemu.zip ipxemu
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipxemu.zip
+          path: ipxemu.zip
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ipxemu.zip
+          draft: true
